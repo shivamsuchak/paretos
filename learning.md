@@ -207,3 +207,60 @@ Consolidating the most important findings for quick reference.
 The first 85% of improvement comes from one simple insight (the optimiser is biased — just trim it). The next 10% comes from patterns (DoW, regime changes). The last 5% is where diminishing returns kick in (newsvendor tuning, seasonal adjustments). Know when to stop optimising.
 
 ---
+
+## 2026-06-28 — UI redesign to paretos design system
+
+**Problem**
+The dashboard used a dark-themed UI (Inter font, teal/coral accents, dark mode toggle) that didn't match the paretos brand.
+
+**Cause**
+The original dashboard was built with a generic dark dev-tool aesthetic. The paretos design system requires a sober monochrome look: white surfaces, black primary actions, #CCC borders, Aeonik Pro typography, and the magenta-amber gradient used only on the brand mark.
+
+**Solution**
+Rewrote the entire CSS layer while keeping all JavaScript untouched:
+- Replaced all CSS variables: dark surfaces to white, teal to violet (selection), coral to semantic red
+- Fonts: Inter to Aeonik Pro (with Roboto/Helvetica fallback), JetBrains Mono to Consolas
+- Topbar: 44px to 60px with gradient logo box (60x60) containing arch SVG in white
+- Cards/KPIs: borders only (no shadows), 7px radius, white backgrounds
+- Buttons: primary = black bg, reject = bordered white (no colored buttons)
+- Removed dark mode toggle entirely (spec says no dark mode)
+- Removed all emoji from buttons and text (spec says never)
+- Tabs: active = black underline (not teal)
+- Added prefers-reduced-motion support
+- Backdrop: solid rgba(0,0,0,0.4) with no blur
+
+**Result**
+Dashboard now matches the paretos design system. All functionality preserved.
+
+**Other Things We Tried**
+N/A — direct CSS/HTML-only rewrite following the spec.
+
+**Lesson**
+When a design system spec exists, treat it as a checklist. Map each token to CSS variables first, then update components. Keeping JS untouched guarantees zero functional regressions.
+
+---
+
+## 28 Jun 2025 — KPI Tooltip System
+
+**Problem**
+The dashboard KPI metric cards showed values but gave no context — a planner couldn't tell what "Gap Closure 43.5%" means, why it's that value, or how to act on it.
+
+**Cause**
+The `kpi()` JS helper only rendered label, value, and subtitle. No tooltip parameter or UI affordance existed.
+
+**Solution**
+1. Added a `tip` parameter to the `kpi()` function that renders a `<span class="kpi-tip">?</span>` with a `data-tip` attribute.
+2. Added CSS-only tooltip using `::after` pseudo-element — dark background, 280px width, appears on hover above the ? icon.
+3. Changed `.kpi` overflow from `hidden` to `visible` so tooltips render outside the card, and added border-radius to the `::before` accent bar to prevent visual bleed.
+4. Wrote contextual tooltips for all 17 KPI cards across Results (12) and Marketplace (4) and Errors (1). Each tooltip explains: what the metric means, why it has this value for our data, and how to use it for decision-making.
+
+**Result**
+Every KPI card now has a small ? icon next to the label. Hovering shows a rich tooltip with domain-specific guidance. No functionality changed.
+
+**Other Things We Tried**
+N/A — pure CSS tooltip approach worked on first attempt.
+
+**Lesson**
+CSS-only tooltips with `data-tip` + `::after` are simpler than JS-powered ones and don't require event listeners. The key gotcha is `overflow:hidden` on parent elements clipping the tooltip — fix with `overflow:visible` and add border-radius to any `::before`/`::after` decorations that previously relied on clipping.
+
+---

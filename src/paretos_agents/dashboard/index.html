@@ -3,342 +3,370 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paretos — Pipeline Monitor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>paretos — Pipeline monitor</title>
 <style>
+@font-face{font-family:'Aeonik Pro';font-weight:400;font-style:normal;font-display:swap;src:local('Aeonik Pro'),local('AeonikPro-Regular')}
+@font-face{font-family:'Aeonik Pro';font-weight:500;font-style:normal;font-display:swap;src:local('Aeonik Pro Medium'),local('AeonikPro-Medium')}
 :root {
-  --bg:          #0B0F1A;
-  --surface-0:   #101623;
-  --surface-1:   #161D2E;
-  --surface-2:   #1C2539;
-  --border:      #232E44;
-  --border-light:#2C3A54;
+  /* Neutrals */
+  --black:       #000000;
+  --black-60:    #666666;
+  --black-40:    #999999;
+  --black-20:    #CCCCCC;
+  --black-10:    rgba(0,0,0,0.10);
+  --black-5:     rgba(0,0,0,0.05);
+  --silver:      #F2F2F2;
+  --white:       #FFFFFF;
 
-  --fg:          #E8ECF4;
-  --fg-2:        #A0AABE;
-  --fg-3:        #5C6A82;
+  /* Brand accents */
+  --violet:      #5F26E0;
+  --violet-5:    #F7F4FD;
+  --violet-10:   #EFE9FC;
+  --violet-20:   #DFD4F9;
+  --pink:        #F500E1;
+  --yellow:      #FBB03B;
+  --slate:       #AAA3CC;
 
-  --teal:        #00C9A7;
-  --teal-dim:    rgba(0,201,167,0.10);
-  --teal-mid:    rgba(0,201,167,0.22);
-  --coral:       #FF6B6B;
-  --amber:       #F5A623;
+  /* Semantic */
+  --green:       #00C04D;
+  --green-bg:    #E6F9ED;
+  --red:         #FB6C4A;
+  --red-bg:      #FFF0ED;
+  --warn:        #FBB03B;
+  --warn-bg:     #FFF6E6;
+  --info:        #51D7E6;
+  --info-bg:     #E6F9F9;
 
-  --sans:        'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
-  --mono:        'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  --ease:        250ms ease-out;
-  --r:           6px;
+  /* Brand gradient */
+  --gradient:    linear-gradient(45.03deg, #F500E1 0%, #FBB03B 100%);
+
+  /* Typography */
+  --sans:        'Aeonik Pro', Roboto, Helvetica, Arial, sans-serif;
+  --mono:        'Consolas', 'Courier New', monospace;
+
+  /* Spacing & motion */
+  --ease:        0.3s ease-out;
+  --r:           7px;
+  --r-lg:        10px;
+  --r-pill:      999px;
+  --shadow:      0 0 10px rgba(0,0,0,0.15);
 }
 
-[data-theme="light"] {
-  --bg:          #F5F7FA;
-  --surface-0:   #FFFFFF;
-  --surface-1:   #F0F2F5;
-  --surface-2:   #E8EBF0;
-  --border:      #D8DCE4;
-  --border-light:#C8CDD6;
-
-  --fg:          #1A1F2E;
-  --fg-2:        #4A5468;
-  --fg-3:        #8892A4;
-
-  --teal:        #009E84;
-  --teal-dim:    rgba(0,158,132,0.08);
-  --teal-mid:    rgba(0,158,132,0.16);
-  --coral:       #E5484D;
-  --amber:       #D97706;
-}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms !important;animation-duration:0.01ms !important}}
 
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:var(--sans);background:var(--bg);color:var(--fg);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;transition:background var(--ease),color var(--ease)}
+body{
+  font-family:var(--sans);font-size:16px;line-height:1.25;
+  background:var(--white);color:var(--black);
+  height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
 
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.hdr,.graph,.insp,.feed,.tab-bar{transition:background var(--ease),border-color var(--ease)}
-.g-num,.g-node,.kpi,.i-card,.debrief-box{transition:all var(--ease)}
+::-webkit-scrollbar-thumb{background:var(--black-20);border-radius:2px}
 
-/* Theme toggle */
-.theme-btn{
-  width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
-  background:var(--surface-1);cursor:pointer;display:flex;
-  align-items:center;justify-content:center;transition:all var(--ease);
-  color:var(--fg-3);font-size:14px;line-height:1;padding:0;
-}
-.theme-btn:hover{background:var(--surface-2);color:var(--fg)}
+/* ━━━ Layout: topbar + body(sidebar | content) ━━━ */
+.shell{display:grid;grid-template-rows:60px 1fr;height:100vh}
 
-/* ━━━ Layout: header + body(graph | feed) ━━━ */
-.shell{display:grid;grid-template-rows:44px 1fr;height:100vh}
-
-/* ── Header ── */
+/* ── Topbar (60px) ── */
 .hdr{
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;background:var(--surface-0);border-bottom:1px solid var(--border);
+  padding:0 40px 0 0;background:var(--white);border-bottom:1px solid var(--black-20);
+  height:60px;
 }
-.hdr-l{display:flex;align-items:center;gap:10px}
-.hdr-l .logo{font-weight:700;font-size:14px;color:var(--fg);letter-spacing:-0.02em}
-.hdr-l .logo span{color:var(--teal)}
+.hdr-l{display:flex;align-items:center;gap:12px;height:100%}
+.hdr-l .logo-box{
+  width:60px;height:60px;display:flex;align-items:center;justify-content:center;
+  background:var(--gradient);flex-shrink:0;
+}
+.hdr-l .logo-box svg{width:28px;height:28px}
+.hdr-l .logo{
+  font-weight:500;font-size:19.2px;color:var(--black);
+  letter-spacing:-0.192px;margin-left:12px;
+}
 .hdr-l .tag{
-  font-family:var(--mono);font-size:10px;font-weight:500;
-  color:var(--teal);background:var(--teal-dim);
-  padding:2px 7px;border-radius:9999px;letter-spacing:0.02em;
+  font-family:var(--mono);font-size:12px;font-weight:400;
+  color:var(--black-40);
+  padding:2px 8px;border:1px solid var(--black-20);border-radius:3px;
+  letter-spacing:0.24px;text-transform:uppercase;
 }
-.hdr-r{display:flex;align-items:center;gap:14px}
-.hdr-r .clock{font-family:var(--mono);font-size:11px;color:var(--fg-3);font-variant-numeric:tabular-nums}
-.hdr-r .clock.on{color:var(--teal)}
-.hdr-r .dot{width:6px;height:6px;border-radius:50%;background:var(--coral);transition:background var(--ease)}
-.hdr-r .dot.ok{background:var(--teal)}
-.hdr-r .dot.run{background:var(--teal);animation:blink 1.4s ease-in-out infinite}
-.hdr-r .st{font-size:11px;color:var(--fg-3)}
+.hdr-r{display:flex;align-items:center;gap:20px}
+.hdr-r .clock{font-family:var(--mono);font-size:14px;color:var(--black-40);font-variant-numeric:tabular-nums}
+.hdr-r .clock.on{color:var(--black)}
+.hdr-r .dot{width:8px;height:8px;border-radius:50%;background:var(--red);transition:background var(--ease)}
+.hdr-r .dot.ok{background:var(--green)}
+.hdr-r .dot.run{background:var(--green);animation:blink 1.4s ease-in-out infinite}
+.hdr-r .st{font-size:14px;color:var(--black-40)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 
-/* ── Body: graph sidebar + feed ── */
+/* ── Body: sidebar + content ── */
 .body{display:grid;grid-template-columns:240px 1fr;overflow:hidden}
 
-/* ── Left: vertical pipeline graph ── */
+/* ── Left: vertical pipeline sidebar ── */
 .graph{
-  background:var(--surface-0);border-right:1px solid var(--border);
-  padding:20px 16px;overflow-y:auto;
+  background:var(--white);border-right:1px solid var(--black-20);
+  padding:20px 12px;overflow-y:auto;
   display:flex;flex-direction:column;gap:0;
 }
 .graph .g-title{
-  font-size:10px;font-weight:600;text-transform:uppercase;
-  letter-spacing:0.08em;color:var(--fg-3);margin-bottom:16px;
+  font-size:12px;font-weight:500;text-transform:uppercase;
+  letter-spacing:0.6px;color:rgba(0,0,0,0.4);margin-bottom:20px;
+  padding:0 10px;
 }
 
 /* Node row */
 .g-node{
   display:flex;align-items:center;gap:10px;
   padding:8px 10px;border-radius:var(--r);
-  cursor:pointer;transition:all var(--ease);position:relative;
+  cursor:pointer;transition:background var(--ease);position:relative;
 }
-.g-node:hover{background:var(--surface-2)}
-.g-node.active{background:var(--teal-dim)}
-.g-node.done .g-num{background:var(--teal);color:var(--bg);border-color:var(--teal)}
+.g-node:hover{background:var(--silver)}
+.g-node.active{background:var(--violet-5)}
+.g-node.done .g-num{background:var(--black);color:var(--white);border-color:var(--black)}
 
 /* Step number circle */
 .g-num{
   width:26px;height:26px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:11px;font-weight:600;
-  color:var(--fg-3);background:var(--surface-1);
-  border:1.5px solid var(--border);transition:all var(--ease);
+  font-family:var(--mono);font-size:11px;font-weight:400;
+  color:var(--black-40);background:var(--white);
+  border:1px solid var(--black-20);transition:all var(--ease);
 }
-.g-node.active .g-num{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.g-node.active .g-num{border-color:var(--violet);color:var(--violet);background:var(--violet-5)}
 
 /* Label + time */
 .g-info{display:flex;flex-direction:column;gap:1px;min-width:0}
-.g-name{font-size:12px;font-weight:500;color:var(--fg-2);transition:color var(--ease)}
-.g-node.active .g-name{color:var(--fg)}
-.g-node.done .g-name{color:var(--fg)}
-.g-elapsed{font-family:var(--mono);font-size:10px;color:var(--fg-3)}
+.g-name{font-size:14px;font-weight:400;color:var(--black-60);transition:color var(--ease)}
+.g-node.active .g-name{color:var(--black);font-weight:500}
+.g-node.done .g-name{color:var(--black)}
+.g-elapsed{font-family:var(--mono);font-size:12px;color:var(--black-40)}
 
 /* Connector line between nodes */
 .g-line{
-  width:1.5px;height:14px;background:var(--border);
+  width:1px;height:12px;background:var(--black-20);
   margin-left:22px;flex-shrink:0;transition:background var(--ease);
 }
-.g-line.lit{background:var(--teal);opacity:0.45}
+.g-line.lit{background:var(--violet);opacity:0.5}
 
 /* Active indicator dot */
 .g-node.active::after{
   content:'';position:absolute;left:15px;top:50%;transform:translate(-50%,-50%);
   width:34px;height:34px;border-radius:50%;
-  border:1.5px solid var(--teal);opacity:0;
+  border:1px solid var(--violet);opacity:0;
   animation:ring 1.6s ease-out infinite;
 }
-@keyframes ring{0%{opacity:.4;transform:translate(-50%,-50%) scale(.85)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}
+@keyframes ring{0%{opacity:.3;transform:translate(-50%,-50%) scale(.85)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}
 
 /* ── Right: feed + inspector ── */
 .right{display:grid;grid-template-columns:1fr 320px;overflow:hidden}
 
 /* Feed */
-.feed{overflow-y:auto;background:var(--bg)}
-.feed .f-bar{
-  position:sticky;top:0;z-index:2;
-  padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.feed .f-bar span{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--fg-3)}
-.feed .f-bar .cnt{font-family:var(--mono);font-size:10px;color:var(--fg-3)}
+.feed{overflow-y:auto;background:var(--white)}
 
 .row{
-  display:grid;grid-template-columns:50px 70px 1fr;
-  padding:4px 16px;transition:background 150ms;
+  display:grid;grid-template-columns:56px 80px 1fr;
+  padding:4px 20px;transition:background 150ms;
   animation:up 200ms ease-out;
+  border-bottom:1px solid rgba(0,0,0,0.03);
 }
-.row:hover{background:var(--surface-1)}
-.row.hi{background:var(--teal-dim)}
+.row:hover{background:var(--silver)}
+.row.hi{background:var(--violet-5)}
 @keyframes up{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 
-.row .r-t{font-family:var(--mono);font-size:10px;color:var(--fg-3);line-height:1.9}
+.row .r-t{font-family:var(--mono);font-size:12px;color:var(--black-40);line-height:1.9}
 .row .r-a{
-  font-family:var(--mono);font-size:10px;font-weight:500;
-  text-align:right;padding-right:8px;line-height:1.9;
-  border-right:1.5px solid var(--border);
+  font-family:var(--mono);font-size:12px;font-weight:400;
+  text-align:right;padding-right:10px;line-height:1.9;
+  border-right:1px solid var(--black-20);
+  color:var(--violet);
 }
-.row .r-b{padding-left:8px;font-size:12px;color:var(--fg-2);line-height:1.65}
-.row .r-b b{color:var(--fg);font-weight:500}
+.row .r-b{padding-left:10px;font-size:14px;color:var(--black-60);line-height:1.65}
+.row .r-b b{color:var(--black);font-weight:500}
 
-.f-done{padding:16px;text-align:center;font-size:12px;font-weight:500;color:var(--teal)}
+.f-done{padding:20px;text-align:center;font-size:14px;font-weight:500;color:var(--green)}
 
 /* Inspector */
-.insp{overflow-y:auto;background:var(--surface-0);border-left:1px solid var(--border)}
+.insp{overflow-y:auto;background:var(--white);border-left:1px solid var(--black-20)}
 .insp .i-bar{
   position:sticky;top:0;z-index:2;
-  padding:10px 14px;background:var(--surface-0);border-bottom:1px solid var(--border);
+  padding:12px 20px;background:var(--white);border-bottom:1px solid var(--black-20);
 }
-.insp .i-bar span{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--fg-3)}
+.insp .i-bar span{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.6px;color:rgba(0,0,0,0.4)}
 
-.i-empty{padding:14px;font-size:11px;color:var(--fg-3);line-height:1.6}
+.i-empty{padding:20px;font-size:14px;color:var(--black-40);line-height:1.6}
 
 .i-card{
-  margin:8px;padding:10px 12px;
-  background:var(--surface-1);border:1px solid var(--border);
+  margin:10px;padding:12px 16px;
+  background:var(--white);border:1px solid var(--black-20);
   border-radius:var(--r);position:relative;overflow:hidden;
 }
 .i-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--teal);
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--violet);
 }
-.i-card .ic-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.i-card .ic-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;color:var(--fg)}
-.i-card .ic-cnt{font-family:var(--mono);font-size:10px;color:var(--fg-3)}
-.i-card .ic-row{font-size:11px;color:var(--fg-2);padding:2px 0;line-height:1.55}
-.i-card .ic-row b{font-family:var(--mono);font-size:10px;color:var(--fg);font-weight:500}
+.i-card .ic-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.i-card .ic-name{font-size:14px;font-weight:500;color:var(--black)}
+.i-card .ic-cnt{font-family:var(--mono);font-size:12px;color:var(--black-40)}
+.i-card .ic-row{font-size:14px;color:var(--black-60);padding:3px 0;line-height:1.55}
+.i-card .ic-row b{font-family:var(--mono);font-size:12px;color:var(--black);font-weight:500}
 
 /* ── Results panel ── */
-.res-wrap{padding:12px;animation:fadeIn 400ms ease-out}
+.res-wrap{padding:20px;animation:fadeIn 400ms ease-out}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
-.res-section{margin-bottom:12px}
+.res-section{margin-bottom:20px}
 .res-section .rs-title{
-  font-size:10px;font-weight:600;text-transform:uppercase;
-  letter-spacing:0.08em;color:var(--fg-3);margin-bottom:8px;
+  font-size:12px;font-weight:500;text-transform:uppercase;
+  letter-spacing:0.6px;color:rgba(0,0,0,0.4);margin-bottom:10px;
 }
 
 /* KPI row */
-.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .kpi{
-  background:var(--surface-1);border:1px solid var(--border);
-  border-radius:var(--r);padding:10px 12px;position:relative;overflow:hidden;
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r);padding:12px 16px;position:relative;overflow:visible;
+  cursor:default;
 }
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--teal)}
-.kpi.warn::before{background:var(--amber)}
-.kpi.err::before{background:var(--coral)}
-.kpi .kpi-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:var(--fg-3);margin-bottom:2px}
-.kpi .kpi-val{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--fg)}
-.kpi .kpi-sub{font-size:10px;color:var(--fg-3);margin-top:2px}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--black);border-radius:var(--r) var(--r) 0 0}
+.kpi.warn::before{background:var(--warn)}
+.kpi.err::before{background:var(--red)}
+.kpi .kpi-label{font-size:12px;font-weight:400;letter-spacing:0.24px;color:var(--black-40);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.kpi .kpi-val{font-family:var(--mono);font-size:19.2px;font-weight:500;color:var(--black)}
+.kpi .kpi-sub{font-size:12px;color:var(--black-40);margin-top:4px}
+
+/* Tooltip */
+.kpi-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:999px;background:var(--black-10);
+  font-size:10px;font-weight:500;color:var(--black-40);cursor:help;flex-shrink:0;
+  font-family:var(--sans);line-height:1;
+}
+.kpi-tip::after{
+  content:attr(data-tip);
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--black);color:var(--white);
+  font-size:12px;font-weight:400;line-height:1.55;letter-spacing:0;
+  padding:10px 14px;border-radius:var(--r);
+  width:280px;max-width:340px;
+  white-space:normal;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity 0.15s ease,visibility 0.15s ease;
+  z-index:100;box-shadow:var(--shadow);
+}
+.kpi-tip:hover::after{opacity:1;visibility:visible}
+/* Edge guards: flip tooltip down if near top */
+.kpi-tip.flip::after{bottom:auto;top:calc(100% + 8px)}
 
 /* Plan table */
-.plan-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.plan-tbl{width:100%;border-collapse:collapse;font-size:14px}
 .plan-tbl th{
-  text-align:left;padding:4px 8px;font-size:10px;font-weight:600;
-  text-transform:uppercase;letter-spacing:0.05em;
-  color:var(--fg-3);border-bottom:1px solid var(--border);
+  text-align:left;padding:6px 10px;font-size:12px;font-weight:500;
+  letter-spacing:0.24px;
+  color:var(--black-40);border-bottom:1px solid var(--black-20);
 }
 .plan-tbl td{
-  padding:4px 8px;border-bottom:1px solid var(--border);
-  font-family:var(--mono);font-size:11px;color:var(--fg-2);
+  padding:6px 10px;border-bottom:1px solid var(--black-20);
+  font-family:var(--mono);font-size:14px;color:var(--black-60);
 }
-.plan-tbl tr:hover td{background:var(--surface-2)}
+.plan-tbl tr:hover td{background:var(--silver)}
 
 /* Risk cards */
 .risk-card{
-  background:var(--surface-1);border:1px solid var(--border);
-  border-radius:var(--r);padding:10px 12px;margin-bottom:8px;
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r);padding:12px 16px;margin-bottom:10px;
   position:relative;overflow:hidden;
 }
 .risk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.risk-card.sev-low::before{background:var(--teal)}
-.risk-card.sev-medium::before{background:var(--amber)}
-.risk-card.sev-high::before{background:var(--coral)}
-.risk-card.sev-critical::before{background:#e53e3e}
-.risk-title{font-size:12px;font-weight:600;color:var(--fg);margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.risk-badge{font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;color:#fff}
-.risk-badge.low{background:var(--teal)}
-.risk-badge.medium{background:var(--amber)}
-.risk-badge.high{background:var(--coral)}
-.risk-badge.critical{background:#e53e3e}
-.risk-desc{font-size:11px;color:var(--fg-2);margin-bottom:6px;line-height:1.5}
-.risk-meta{display:flex;gap:12px;font-size:10px;color:var(--fg-3);font-family:var(--mono)}
-.risk-mitigation{font-size:10px;color:var(--teal);margin-top:4px;font-style:italic}
+.risk-card.sev-low::before{background:var(--green)}
+.risk-card.sev-medium::before{background:var(--warn)}
+.risk-card.sev-high::before{background:var(--red)}
+.risk-card.sev-critical::before{background:var(--red)}
+.risk-title{font-size:14px;font-weight:500;color:var(--black);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.risk-badge{font-size:10px;font-weight:500;text-transform:uppercase;padding:2px 8px;border-radius:3px;color:var(--white)}
+.risk-badge.low{background:var(--green)}
+.risk-badge.medium{background:var(--warn)}
+.risk-badge.high{background:var(--red)}
+.risk-badge.critical{background:var(--red)}
+.risk-desc{font-size:14px;color:var(--black-60);margin-bottom:8px;line-height:1.5}
+.risk-meta{display:flex;gap:16px;font-size:12px;color:var(--black-40);font-family:var(--mono)}
+.risk-mitigation{font-size:12px;color:var(--violet);margin-top:6px;font-style:italic}
 
 /* Marketplace atom grid */
-.atom-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:8px}
+.atom-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
 .atom-card{
-  background:var(--surface-1);border:1px solid var(--border);
-  border-radius:var(--r);padding:8px 10px;font-size:10px;
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r);padding:10px 12px;font-size:12px;
 }
-.atom-card.st-open{border-left:3px solid var(--teal)}
-.atom-card.st-claimed{border-left:3px solid var(--amber)}
-.atom-card.st-filled{border-left:3px solid var(--fg-3)}
-.atom-time{font-family:var(--mono);color:var(--fg);font-weight:600}
-.atom-act{color:var(--fg-2);margin:2px 0}
-.atom-hc{font-family:var(--mono);color:var(--fg-3)}
-.atom-price{font-family:var(--mono);color:var(--teal);font-weight:600}
+.atom-card.st-open{border-left:3px solid var(--green)}
+.atom-card.st-claimed{border-left:3px solid var(--warn)}
+.atom-card.st-filled{border-left:3px solid var(--black-40)}
+.atom-time{font-family:var(--mono);color:var(--black);font-weight:500}
+.atom-act{color:var(--black-60);margin:2px 0}
+.atom-hc{font-family:var(--mono);color:var(--black-40)}
+.atom-price{font-family:var(--mono);color:var(--green);font-weight:500}
 
 /* Human Review Panel */
 .review-overlay{
   position:fixed;top:0;left:0;right:0;bottom:0;
-  background:rgba(0,0,0,0.7);z-index:1000;
+  background:rgba(0,0,0,0.4);z-index:1000;
   display:flex;align-items:center;justify-content:center;
 }
 .review-panel{
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:12px;padding:24px;max-width:720px;width:90%;
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r-lg);padding:30px;max-width:720px;width:90%;
   max-height:85vh;overflow-y:auto;
+  box-shadow:var(--shadow);
 }
-.review-panel h2{font-size:16px;color:var(--fg);margin:0 0 16px;display:flex;align-items:center;gap:8px}
-.review-plan-table{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:11px}
-.review-plan-table th{text-align:left;color:var(--fg-3);font-weight:500;padding:4px 8px;border-bottom:1px solid var(--border)}
-.review-plan-table td{padding:4px 8px;color:var(--fg-2);font-family:var(--mono)}
-.review-actions{display:flex;gap:12px;margin-top:20px;justify-content:flex-end}
+.review-panel h2{font-size:19.2px;font-weight:500;letter-spacing:-0.192px;color:var(--black);margin:0 0 20px;display:flex;align-items:center;gap:10px}
+.review-plan-table{width:100%;border-collapse:collapse;margin:10px 0 20px;font-size:14px}
+.review-plan-table th{text-align:left;color:var(--black-40);font-weight:500;padding:6px 10px;border-bottom:1px solid var(--black-20)}
+.review-plan-table td{padding:6px 10px;color:var(--black-60);font-family:var(--mono)}
+.review-actions{display:flex;gap:12px;margin-top:24px;justify-content:flex-end}
 .btn-approve{
-  background:var(--teal);color:#000;border:none;padding:10px 24px;
-  border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;
+  background:var(--black);color:var(--white);border:none;padding:10px 24px;
+  border-radius:var(--r);font-weight:500;font-size:14px;cursor:pointer;
+  font-family:var(--sans);transition:all var(--ease);
 }
-.btn-approve:hover{opacity:0.85}
+.btn-approve:hover{background:var(--black-60)}
 .btn-reject{
-  background:var(--coral);color:#fff;border:none;padding:10px 24px;
-  border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;
+  background:var(--white);color:var(--black);border:1px solid var(--black-20);padding:10px 24px;
+  border-radius:var(--r);font-weight:500;font-size:14px;cursor:pointer;
+  font-family:var(--sans);transition:all var(--ease);
 }
-.btn-reject:hover{opacity:0.85}
+.btn-reject:hover{border-color:var(--black-60);background:var(--silver)}
 .review-risk-summary{
-  display:flex;gap:12px;margin:12px 0;padding:12px;
-  background:var(--surface-1);border-radius:var(--r);border:1px solid var(--border);
+  display:flex;gap:16px;margin:12px 0;padding:16px;
+  background:var(--white);border-radius:var(--r);border:1px solid var(--black-20);
 }
 .review-risk-score{
-  font-size:32px;font-weight:700;font-family:var(--mono);
+  font-size:32px;font-weight:500;font-family:var(--mono);
   min-width:80px;text-align:center;line-height:1;
 }
-.review-risk-score.low{color:var(--teal)}
-.review-risk-score.medium{color:var(--amber)}
-.review-risk-score.high{color:var(--coral)}
-.review-risk-score.critical{color:#e53e3e}
-.review-risk-label{font-size:10px;color:var(--fg-3);text-align:center;margin-top:4px}
+.review-risk-score.low{color:var(--green)}
+.review-risk-score.medium{color:var(--warn)}
+.review-risk-score.high{color:var(--red)}
+.review-risk-score.critical{color:var(--red)}
+.review-risk-label{font-size:12px;color:var(--black-40);text-align:center;margin-top:6px}
 
 /* Debrief */
 .debrief-box{
-  background:var(--surface-1);border:1px solid var(--border);
-  border-radius:var(--r);padding:12px;font-size:11px;
-  color:var(--fg-2);line-height:1.65;white-space:pre-wrap;
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r);padding:16px;font-size:14px;
+  color:var(--black-60);line-height:1.65;white-space:pre-wrap;
   max-height:300px;overflow-y:auto;
 }
-.debrief-box h1,.debrief-box h2,.debrief-box h3{font-size:12px;font-weight:600;color:var(--fg);margin:8px 0 4px}
-.debrief-box strong{color:var(--fg);font-weight:600}
+.debrief-box h1,.debrief-box h2,.debrief-box h3{font-size:14px;font-weight:500;color:var(--black);margin:10px 0 4px}
+.debrief-box strong{color:var(--black);font-weight:500}
 
 /* Tabs for switching feed/results */
-.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg)}
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--black-20);background:var(--white)}
 .tab-btn{
-  padding:8px 16px;font-size:10px;font-weight:600;text-transform:uppercase;
-  letter-spacing:0.06em;color:var(--fg-3);cursor:pointer;
+  padding:10px 20px;font-size:14px;font-weight:400;
+  color:var(--black-40);cursor:pointer;
   border:none;background:none;border-bottom:2px solid transparent;
-  transition:all var(--ease);
+  transition:all var(--ease);font-family:var(--sans);
 }
-.tab-btn:hover{color:var(--fg-2)}
-.tab-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+.tab-btn:hover{color:var(--black-60)}
+.tab-btn.active{color:var(--black);border-bottom-color:var(--black);font-weight:500}
 .tab-panel{display:none;overflow-y:auto}
 .tab-panel.show{display:block}
 </style>
@@ -348,12 +376,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--fg);height:100vh;o
 
   <div class="hdr">
     <div class="hdr-l">
-      <div class="logo">pare<span>t</span>os</div>
+      <div class="logo-box">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 4C9.373 4 4 9.373 4 16s5.373 12 12 12 12-5.373 12-12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo">paretos</span>
       <span class="tag">pipeline monitor</span>
     </div>
     <div class="hdr-r">
       <span class="clock" id="timer">00:00</span>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark mode">&#9790;</button>
       <div class="dot" id="sDot"></div>
       <span class="st" id="sTxt">Connecting</span>
     </div>
@@ -375,7 +407,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--fg);height:100vh;o
           <button class="tab-btn" id="resultsTab" onclick="showTab('results')" style="display:none">Results</button>
           <button class="tab-btn" id="marketTab" onclick="showTab('market')" style="display:none">Marketplace</button>
           <span style="flex:1"></span>
-          <span class="cnt" id="traceCount" style="padding:8px 16px;font-family:var(--mono);font-size:10px;color:var(--fg-3)">0 events</span>
+          <span class="cnt" id="traceCount" style="padding:10px 20px;font-family:var(--mono);font-size:12px;color:var(--black-40)">0 events</span>
         </div>
         <div class="tab-panel show" id="feedPanel" style="overflow-y:auto">
           <div id="feed"></div>
@@ -469,7 +501,7 @@ function addRow(m){
   const col=m.agent;
   r.innerHTML=
     `<span class="r-t">${m.timestamp}</span>`+
-    `<span class="r-a" style="color:var(--teal)">${col}</span>`+
+    `<span class="r-a">${col}</span>`+
     `<span class="r-b"><b>${m.step}</b> ${esc(m.detail)}</span>`;
   feed.appendChild(r);
   feed.scrollTop=feed.scrollHeight;
@@ -508,31 +540,41 @@ function showResults(r){
 
   // ── Row 1: Core KPIs ──
   h+='<div class="res-section"><div class="rs-title">Key metrics</div><div class="kpi-row">';
-  h+=kpi('Forecast','MAPE '+(fc.mape_pct!=null?fc.mape_pct+'%':'N/A'),fc.status||'',fc.mape_pct>15?'warn':'');
-  h+=kpi('Total Staff',totalPd.toFixed(1)+' pd',plan.length+' days planned','');
+  const fcTip='Mean Absolute Percentage Error of the volume forecast. Below 5% means the forecast is reliable and corrections can be trusted. Above 15% means high uncertainty — plan conservatively. This value is computed from forecast vs realised picks, outbound, and inbound volumes.';
+  h+=kpi('Forecast','MAPE '+(fc.mape_pct!=null?fc.mape_pct+'%':'N/A'),fc.status||'',fc.mape_pct>15?'warn':'',fcTip);
+  const staffTip='Total operative person-days across the planned week, after bias correction and newsvendor optimisation. Compare this to historical demand (avg ~54 pd/day x 5 = ~270 pd). Lower means the system is trimming overstaffing from the raw optimiser. Check the daily breakdown table to spot uneven distribution.';
+  h+=kpi('Total Staff',totalPd.toFixed(1)+' pd',plan.length+' days planned','',staffTip);
   h+='</div><div class="kpi-row">';
-  h+=kpi('Approval',r.approved?'Approved':'Pending','Human review gate',r.approved?'':'warn');
+  const appTip=r.approved?'The plan was approved by the planner. The staffing numbers will be submitted. If you see issues after approval, re-run the pipeline with different parameters.':'The plan is waiting for human approval. Review the risk scenarios and daily plan below before deciding. Rejecting sends it back for re-optimisation.';
+  h+=kpi('Approval',r.approved?'Approved':'Pending','Human review gate',r.approved?'':'warn',appTip);
   const regSub=rg.detected?(rg.method?rg.method.toUpperCase():'detected')+' — '+(rg.confidence||''):'No change';
-  h+=kpi('Regime',rg.detected?'Shift':'Stable',regSub,rg.detected?'warn':'');
+  const regTip=rg.detected?'A structural change in the relationship between recommended and actual staffing was detected (e.g. new equipment, process change). The planning agent adjusts its bias correction accordingly. Review what caused the shift before trusting the new correction.':'No structural change detected. The historical bias correction remains valid. A shift would indicate events like pick-by-light installation or seasonal volume changes that alter staffing needs.';
+  h+=kpi('Regime',rg.detected?'Shift':'Stable',regSub,rg.detected?'warn':'',regTip);
   h+='</div>';
 
   // ── Row 2: Cost performance ──
   if(cost.baseline_cost||cost.plan_cost){
     h+='<div class="kpi-row">';
-    h+=kpi('Plan Cost','€'+fmt(cost.plan_cost),'vs baseline €'+fmt(cost.baseline_cost),'');
+    const costTip='Expected weekly staffing cost after all corrections, estimated via 1,000 Monte Carlo simulations sampling from historical demand. The baseline is what the raw optimiser would cost without any corrections. Lower plan cost means the learning loop is working. This is an estimate — actual cost depends on realised demand.';
+    h+=kpi('Plan Cost','€'+fmt(cost.plan_cost),'vs baseline €'+fmt(cost.baseline_cost),'',costTip);
     const gapCls=cost.gap_closure_pct>50?'':cost.gap_closure_pct>20?'warn':'err';
-    h+=kpi('Gap Closure',cost.gap_closure_pct+'%','Savings €'+fmt(cost.savings),gapCls);
+    const gapTip='How much of the gap between baseline cost (doing nothing) and perfect cost (impossible to achieve) is closed by our plan. Above 50% is strong. 20-50% is moderate — look for regime shifts or knowledge notes that could improve corrections. Below 20% means corrections may be miscalibrated.';
+    h+=kpi('Gap Closure',cost.gap_closure_pct+'%','Savings €'+fmt(cost.savings),gapCls,gapTip);
     h+='</div><div class="kpi-row">';
-    h+=kpi('Days Over',cost.days_overstaffed||0,'Overstaffed','');
-    h+=kpi('Days Under',cost.days_understaffed||0,'Understaffed',cost.days_understaffed>2?'warn':'');
+    const overTip='Expected number of days where planned staff exceeds actual demand. Overstaffing costs EUR 230 per surplus person-day (idle wages). Some overstaffing is acceptable as insurance against SLA penalties, but consistent overstaffing means the bias correction is too conservative.';
+    h+=kpi('Days Over',cost.days_overstaffed||0,'Overstaffed','',overTip);
+    const underTip='Expected number of days where planned staff falls short of demand. Understaffing costs EUR 41/pd as overtime, but beyond 2.0 pd shortfall it jumps to EUR 600/pd (SLA penalty). The newsvendor optimiser deliberately leans slightly under because overstaffing is 5.5x more expensive per unit. Watch for more than 2 days — that signals the plan is too aggressive.';
+    h+=kpi('Days Under',cost.days_understaffed||0,'Understaffed',cost.days_understaffed>2?'warn':'',underTip);
     h+='</div>';
   }
 
   // ── Row 3: Newsvendor & Monte Carlo ──
   if(nv.critical_ratio||mc.historical_errors){
     h+='<div class="kpi-row">';
-    h+=kpi('Newsvendor',(nv.critical_ratio*100).toFixed(1)+'th pctl','Optimal offset '+(nv.optimal_offset>=0?'+':'')+nv.optimal_offset+' pd/day','');
-    h+=kpi('Monte Carlo',mc.historical_errors+' days sim\'d',mc.simulated_offsets+' offsets tested','');
+    const nvTip='The newsvendor model balances overstaffing cost (EUR 230/pd) vs understaffing cost (EUR 41/pd). The critical ratio of 15.3% means we target the 15th percentile of the error distribution — deliberately planning slightly lean. The offset is the per-day adjustment applied after bias correction. A negative offset means we trim further; positive means we add a buffer.';
+    h+=kpi('Newsvendor',(nv.critical_ratio*100).toFixed(1)+'th pctl','Optimal offset '+(nv.optimal_offset>=0?'+':'')+nv.optimal_offset+' pd/day','',nvTip);
+    const mcTip='Simulates 101 different staffing offsets against historical demand to find the cost-minimising adjustment. More historical days = more reliable. The optimal offset from this simulation is applied on top of the bias-corrected plan. If this disagrees with the newsvendor quantile, the MC result takes priority because it accounts for the full cost structure including SLA penalties.';
+    h+=kpi('Monte Carlo',mc.historical_errors+' days sim\'d',mc.simulated_offsets+' offsets tested','',mcTip);
     h+='</div>';
   }
 
@@ -541,8 +583,10 @@ function showResults(r){
   if(risk.scenarios&&risk.scenarios.length){
     const riskCls=risk.overall_risk_score>60?'err':risk.overall_risk_score>30?'warn':'';
     h+='<div class="kpi-row">';
-    h+=kpi('Risk Score',risk.overall_risk_score+'/100',risk.risk_level+' risk',riskCls);
-    h+=kpi('Expected Regret','€'+fmt(risk.total_expected_regret),risk.fragile_days&&risk.fragile_days.length?risk.fragile_days.length+' fragile days':'No fragile days',riskCls);
+    const riskTip='Composite adversarial risk score from the red team agent. Combines probability, cost impact, and expected regret across all failure scenarios. 0-25 = low (safe to approve), 25-50 = moderate (review mitigations), 50-75 = high (consider adjustments), 75+ = critical (strongly consider rejecting). The score helps decide whether to approve, modify, or reject the plan.';
+    h+=kpi('Risk Score',risk.overall_risk_score+'/100',risk.risk_level+' risk',riskCls,riskTip);
+    const regretTip='Sum of (probability x cost) across all adversarial scenarios. This is the expected monetary loss if risks materialise as estimated. Compare to plan savings — if regret exceeds savings, the plan may not be worth the risk. Fragile days are dates where multiple risk scenarios overlap, making them especially vulnerable.';
+    h+=kpi('Expected Regret','€'+fmt(risk.total_expected_regret),risk.fragile_days&&risk.fragile_days.length?risk.fragile_days.length+' fragile days':'No fragile days',riskCls,regretTip);
     h+='</div>';
     h+='<div class="res-section"><div class="rs-title">Adversarial Risk Scenarios</div>';
     risk.scenarios.forEach(sc=>{
@@ -552,14 +596,14 @@ function showResults(r){
       h+=`<div class="risk-desc">${esc(sc.description||'')}</div>`;
       h+=`<div class="risk-meta"><span>P=${(sc.probability*100).toFixed(0)}%</span><span>Cost: €${fmt(sc.cost_if_triggered)}</span><span>Regret: €${fmt(sc.expected_regret)}</span></div>`;
       if(sc.affected_days&&sc.affected_days.length)h+=`<div class="risk-meta" style="margin-top:2px">Affected: ${sc.affected_days.join(', ')}</div>`;
-      if(sc.mitigation)h+=`<div class="risk-mitigation">⚡ ${esc(sc.mitigation)}</div>`;
+      if(sc.mitigation)h+=`<div class="risk-mitigation">${esc(sc.mitigation)}</div>`;
       h+='</div>';
     });
     h+='</div>';
   }
 
   // ── Errors ──
-  if(r.error_count>0){h+='<div class="kpi-row">';h+=kpi('Errors',r.error_count+' issues','Check logs','err');h+='</div>'}
+  if(r.error_count>0){h+='<div class="kpi-row">';h+=kpi('Errors',r.error_count+' issues','Check logs','err','One or more pipeline agents encountered errors during execution. Check the activity feed for details. Errors may mean some corrections were skipped or fallback values were used, which could reduce plan quality.');h+='</div>'}
   h+='</div>';
 
   // ── Staffing plan table ──
@@ -572,13 +616,13 @@ function showResults(r){
 
   // ── Knowledge updates with staleness ──
   if(r.knowledge&&r.knowledge.length){
-    const staleTag=r.knowledge_stale>0?' <span style="color:var(--coral);font-weight:600">'+r.knowledge_stale+' stale</span>':'';
+    const staleTag=r.knowledge_stale>0?' <span style="color:var(--red);font-weight:500">'+r.knowledge_stale+' stale</span>':'';
     h+='<div class="res-section"><div class="rs-title">Knowledge updates ('+r.knowledge_count+')'+staleTag+'</div>';
     r.knowledge.forEach(k=>{
       const isStale=k.status==='stale';
       const staleStyle=isStale?'opacity:0.55;text-decoration:line-through':'';
-      const ageTag=k.days_since?'<span style="color:var(--fg-3);font-size:10px"> '+k.days_since+'d ago</span>':'';
-      h+=`<div style="font-size:11px;color:var(--fg-2);padding:2px 0;${staleStyle}"><span style="font-family:var(--mono);color:var(--fg)">${esc(k.id)}</span> ${esc(k.status)} <span style="color:var(--fg-3)">conf: ${k.confidence}</span>${ageTag}</div>`;
+      const ageTag=k.days_since?'<span style="color:var(--black-40);font-size:12px"> '+k.days_since+'d ago</span>':'';
+      h+=`<div style="font-size:14px;color:var(--black-60);padding:3px 0;${staleStyle}"><span style="font-family:var(--mono);color:var(--black)">${esc(k.id)}</span> ${esc(k.status)} <span style="color:var(--black-40)">conf: ${k.confidence}</span>${ageTag}</div>`;
     });
     h+='</div>';
   }
@@ -598,13 +642,13 @@ function showResults(r){
     $('marketTab').style.display='';
     let mh='<div class="res-wrap">';
     mh+='<div class="res-section"><div class="rs-title">Marketplace Summary</div><div class="kpi-row">';
-    mh+=kpi('Atoms',mkt.total_atoms,'open: '+mkt.open_atoms+', claimed: '+mkt.claimed_atoms+', filled: '+mkt.filled_atoms,'');
-    mh+=kpi('Fill Rate',mkt.fill_rate_pct+'%',mkt.total_headcount_filled+'/'+mkt.total_headcount_needed+' headcount',mkt.fill_rate_pct<50?'warn':'');
+    mh+=kpi('Atoms',mkt.total_atoms,'open: '+mkt.open_atoms+', claimed: '+mkt.claimed_atoms+', filled: '+mkt.filled_atoms,'','Micro-shift units generated from the approved plan. Each atom is a time-slot and activity combination that can be posted to the flex marketplace for temp workers to claim. Open atoms still need workers; claimed are reserved; filled are confirmed.');
+    mh+=kpi('Fill Rate',mkt.fill_rate_pct+'%',mkt.total_headcount_filled+'/'+mkt.total_headcount_needed+' headcount',mkt.fill_rate_pct<50?'warn':'','Percentage of required headcount that has been filled through the marketplace. Below 50% means significant staffing gaps remain. The fill rate typically starts at 0% when a plan is first published and increases as temp workers claim shifts.');
     mh+='</div><div class="kpi-row">';
-    mh+=kpi('Revenue','\u20ac'+fmt(mkt.total_revenue_eur),'From claimed atoms','');
+    mh+=kpi('Revenue','\u20ac'+fmt(mkt.total_revenue_eur),'From claimed atoms','','Total revenue from marketplace transactions for claimed shift atoms. This reflects the cost of flex labour engaged through the platform. Higher revenue with good fill rate means the marketplace is actively solving staffing gaps.');
     const acts=mkt.activities||{};
     const actStr=Object.entries(acts).map(([k,v])=>k+': '+v).join(', ');
-    mh+=kpi('Activities',Object.keys(acts).length+' types',actStr||'N/A','');
+    mh+=kpi('Activities',Object.keys(acts).length+' types',actStr||'N/A','','Breakdown of marketplace atoms by warehouse activity type (e.g. picking, packing, receiving, loading). Helps identify which activities have the most demand for flex workers and where staffing gaps are concentrated.');
     mh+='</div></div></div>';
     $('marketBody').innerHTML=mh;
   }
@@ -616,8 +660,9 @@ function showResults(r){
 
 function fmt(n){return n!=null?Number(n).toLocaleString('de-DE',{maximumFractionDigits:0}):'—'}
 
-function kpi(label,val,sub,cls){
-  return `<div class="kpi ${cls}"><div class="kpi-label">${label}</div><div class="kpi-val">${val}</div><div class="kpi-sub">${sub}</div></div>`;
+function kpi(label,val,sub,cls,tip){
+  const tipHtml=tip?`<span class="kpi-tip" data-tip="${esc(tip)}">?</span>`:'';
+  return `<div class="kpi ${cls}"><div class="kpi-label">${label}${tipHtml}</div><div class="kpi-val">${val}</div><div class="kpi-sub">${sub}</div></div>`;
 }
 
 function formatDebrief(md){
@@ -656,14 +701,14 @@ function showReviewPanel(r){
   const riskLevel=riskScore>=80?'critical':riskScore>=50?'high':riskScore>=25?'medium':'low';
 
   let h='<div class="review-panel">';
-  h+='<h2>👤 Human Review Required</h2>';
+  h+='<h2>Human review required</h2>';
 
   // Plan table
   h+='<div class="rs-title">Proposed Staffing Plan</div>';
   h+='<table class="review-plan-table"><tr><th>Date</th><th>Person-Days</th></tr>';
   let totalPd=0;
   plan.forEach(p=>{h+='<tr><td>'+p.date+'</td><td>'+p.pd+'</td></tr>';totalPd+=p.pd});
-  h+='<tr style="border-top:1px solid var(--border);font-weight:600"><td>Total</td><td>'+totalPd.toFixed(1)+'</td></tr>';
+  h+='<tr style="border-top:1px solid var(--black-20);font-weight:500"><td>Total</td><td>'+totalPd.toFixed(1)+'</td></tr>';
   h+='</table>';
 
   // Risk summary
@@ -672,10 +717,10 @@ function showReviewPanel(r){
     h+='<div class="review-risk-summary">';
     h+='<div><div class="review-risk-score '+riskLevel+'">'+riskScore+'</div>';
     h+='<div class="review-risk-label">Risk Score</div></div>';
-    h+='<div style="flex:1;font-size:11px;color:var(--fg-2);padding:4px 0">';
+    h+='<div style="flex:1;font-size:14px;color:var(--black-60);padding:4px 0">';
     h+='<div>'+scenarios.length+' failure scenarios identified</div>';
     const regret=risk.total_expected_regret||0;
-    h+='<div style="margin-top:4px">Expected regret: <b style="color:var(--coral)">€'+fmt(regret)+'</b></div>';
+    h+='<div style="margin-top:4px">Expected regret: <b style="color:var(--red)">€'+fmt(regret)+'</b></div>';
     const fragile=risk.fragile_days||[];
     if(fragile.length)h+='<div style="margin-top:4px">Fragile days: '+fragile.join(', ')+'</div>';
     h+='</div></div>';
@@ -698,8 +743,8 @@ function showReviewPanel(r){
 
   // Buttons
   h+='<div class="review-actions">';
-  h+='<button class="btn-reject" onclick="sendDecision(false)">❌ Reject Plan</button>';
-  h+='<button class="btn-approve" onclick="sendDecision(true)">✅ Approve Plan</button>';
+  h+='<button class="btn-reject" onclick="sendDecision(false)">Reject plan</button>';
+  h+='<button class="btn-approve" onclick="sendDecision(true)">Approve plan</button>';
   h+='</div></div>';
 
   const overlay=document.createElement('div');
@@ -722,8 +767,8 @@ function sendDecision(approved){
   r.className='row hi';
   r.innerHTML=
     `<span class="r-t">${new Date().toLocaleTimeString()}</span>`+
-    `<span class="r-a" style="color:${approved?'var(--teal)':'var(--coral)'}">human_review</span>`+
-    `<span class="r-b"><b>decision</b> ${approved?'✅ Approved':'❌ Rejected'} by planner</span>`;
+    `<span class="r-a">human_review</span>`+
+    `<span class="r-b"><b>decision</b> ${approved?'Approved':'Rejected'} by planner</span>`;
   feed.appendChild(r);
   feed.scrollTop=feed.scrollHeight;
 }
@@ -749,19 +794,6 @@ function tick(){
 function $(id){return document.getElementById(id)}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
-// Theme toggle
-function toggleTheme(){
-  const html=document.documentElement;
-  const next=html.getAttribute('data-theme')==='light'?'dark':'light';
-  html.setAttribute('data-theme',next);
-  localStorage.setItem('paretos-theme',next);
-  $('themeBtn').innerHTML=next==='light'?'&#9728;':'&#9790;';
-}
-(function initTheme(){
-  const saved=localStorage.getItem('paretos-theme')||'dark';
-  document.documentElement.setAttribute('data-theme',saved);
-  $('themeBtn').innerHTML=saved==='light'?'&#9728;':'&#9790;';
-})();
 
 connect();
 </script>
