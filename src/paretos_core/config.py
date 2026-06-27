@@ -36,10 +36,10 @@ class Settings(BaseSettings):
         default=8.0, description="Fixed admin desks (always staffed)"
     )
 
-    # LLM (optional — Phase 2+)
-    openai_api_key: str = Field(default="", description="OpenAI API key")
-    primary_llm_model: str = Field(default="gpt-4o", description="Primary LLM model")
-    small_llm_model: str = Field(default="gpt-4o-mini", description="Small/cheap LLM model")
+    # LLM
+    anthropic_api_key: str = Field(default="", description="Anthropic API key")
+    primary_llm_model: str = Field(default="claude-sonnet-4-6", description="Primary LLM model")
+    small_llm_model: str = Field(default="claude-sonnet-4-6", description="Small/cheap LLM model")
     llm_temperature: float = Field(default=0.1, description="LLM temperature")
 
     # Logging

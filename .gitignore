@@ -1,4 +1,4 @@
-# Python
+# ── Python ────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,40 +6,72 @@ __pycache__/
 dist/
 build/
 *.egg
+*.whl
+*.pyz
+*.pyzw
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Virtual environment
+# ── Virtual environments ─────────────────────────────────
 .venv/
 venv/
 env/
+ENV/
 
-# Environment variables
+# ── Environment variables ────────────────────────────────
 .env
+.env.local
+.env.*.local
 
-# Database
+# ── Databases ────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
 *.duckdb
 *.duckdb.wal
+*.sqlite3
 
-# Vector store
+# ── Vector store ─────────────────────────────────────────
 chroma_db/
 
-# IDE
+# ── IDE / Editor ─────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
 
-# Logs and output
-logs/
-output/
-
-# OS
+# ── OS ───────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Jupyter
+# ── Jupyter ──────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# Coverage
+# ── Testing & Coverage ───────────────────────────────────
 htmlcov/
 .coverage
 .coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Logs and output ──────────────────────────────────────
+logs/
+*.log
+output/
+pipeline_output.txt
+
+# ── Duplicate / scratch data ─────────────────────────────
+data-1/
+
+# ── Generated / scratch files ────────────────────────────
+*.pyc
+*.pyo

@@ -264,3 +264,29 @@ N/A — pure CSS tooltip approach worked on first attempt.
 CSS-only tooltips with `data-tip` + `::after` are simpler than JS-powered ones and don't require event listeners. The key gotcha is `overflow:hidden` on parent elements clipping the tooltip — fix with `overflow:visible` and add border-radius to any `::before`/`::after` decorations that previously relied on clipping.
 
 ---
+
+## 2026-06-28 — Full Codebase Architecture Audit
+
+**Problem**
+Needed a comprehensive audit of every source file, dependency, and cross-reference before proceeding with further development.
+
+**What We Found**
+
+1. **LLM provider mismatch:** `config.py` defined `openai_api_key` and defaulted to `gpt-4o`/`gpt-4o-mini`, but `llm.py` exclusively uses the Anthropic SDK with Claude. `.env.example` also listed OpenAI models as defaults.
+2. **Missing direct dependencies:** `pyproject.toml` didn't list `anthropic` (imported directly by `llm.py`), `websockets` (imported by `trace_server.py`), or `fastapi`/`uvicorn` (imported by `paretos_marketplace/api.py`).
+3. **`debug_trace.py`** is a standalone debugging script at the repo root — useful but not referenced by any module. Not a bug, just a loose file.
+4. **All modules well-connected:** Every module (`paretos_core`, `paretos_stats`, `paretos_eval`, `paretos_pipeline`, `paretos_agents`, `paretos_marketplace`) is imported and used by at least one other module. No dead modules.
+
+**Solution**
+- Changed `config.py`: `openai_api_key` → `anthropic_api_key`, model defaults → `claude-sonnet-4-6`
+- Changed `.env.example`: Anthropic key first, OpenAI commented out, model defaults → Claude
+- Added to `pyproject.toml` agents group: `anthropic>=0.34`, `websockets>=12.0`
+- Added new `marketplace` optional group: `fastapi>=0.110`, `uvicorn>=0.29`
+
+**Result**
+Config, dependencies, and `.env.example` now match what the code actually uses. No functional changes — just alignment.
+
+**Lesson**
+When a codebase evolves (e.g., switching from OpenAI to Anthropic), config files and dependency manifests can get out of sync with the actual imports. A full cross-reference audit catches these silently broken assumptions before they cause runtime errors.
+
+---

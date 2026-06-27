@@ -1,345 +1,240 @@
-# Compounding Decisions — Warehouse Staffing Dataset
+# paretos
 
-> **Track question:** *How can AI and knowledge systems help humans understand the
-> strengths and weaknesses of past decisions — so that future decisions get better
-> over time?*
+**Compounding Decision Intelligence for Warehouse Staffing Optimisation**
 
-This dataset gives you a real-shaped supply-chain decision that **repeats every week
-for six months**. Each week a planner has to commit a staffing plan, then reality
-arrives and tells them how good the plan was. Your job is to build a system that
-**gets smarter every week** — one that learns from what worked and what didn't, and
-carries that knowledge into the next decision.
+A multi-agent AI system that learns from weekly staffing decisions at a warehouse distribution centre. Each week the system ingests an optimiser's staffing recommendation, applies statistical corrections calibrated on historical performance, runs adversarial risk analysis, and produces a cost-optimised staffing plan — getting smarter every cycle.
 
-It is designed so that a single clever model run will *not* win. What wins is a loop
-that **compounds**: captures a learning, applies it next cycle, notices when a
-learning goes stale, and tells signal apart from noise.
+Built for the [paretos "Compounding Decisions" hackathon](https://www.paretos.com/).
 
 ---
 
-## 1. The scenario
+## Features
 
-**Helios Logistics — DC Rhein-Main** is a fictional (anonymised) distribution centre.
-Every Tuesday, a deterministic planning optimiser publishes a **staffing
-recommendation** for the *following* Mon–Fri: how many person-days to put on each of
-~15 operative activities (Unloading, Picking, Putaway, Loading, …) plus 4 admin desks.
-It builds this from a **volume forecast** (inbound pallets, outbound pallets, picks)
-divided by a fixed productivity **rate card**.
-
-The optimiser is *fine*, not great. Its rate card was set once and never re-tuned, so
-its recommendation drifts from what the warehouse actually needs. The site's planners
-already know this in their gut — they quietly adjust the plan every week and jot notes
-after each debrief. **Nobody has ever turned those notes into a system.** That's you.
-
-```
-        Tuesday                     following Mon–Fri                 after the week
-   ┌──────────────────┐        ┌───────────────────────┐        ┌────────────────────┐
-   │ optimiser issues │  ───►  │  planner DECIDES the   │  ───►  │  ACTUALS revealed:  │
-   │ a recommendation │        │  staffing plan (commit)│        │ who was needed +    │
-   │ (forecast ÷ rate)│        │                        │        │ what shipped        │
-   └──────────────────┘        └───────────────────────┘        └─────────┬──────────┘
-            ▲                                                              │
-            │                      learnings carried forward              │
-            └──────────────────────────────────────────────────────────◄─┘
-                        capture WHY plan ≠ reality, apply it next week
-```
-
-There are **24 of these cycles**, week after week. That repetition is the whole point:
-it is what lets knowledge compound — and what lets a stale belief quietly rot.
+- **8-agent LangGraph pipeline** — Forecast, Knowledge Curation, Regime Detection, Planning, Cost Optimisation, Red Team, Human Review, and Debrief agents collaborate in a directed graph
+- **Statistical correction stack** — bias correction, day-of-week factors, regime detection (pick-by-light), newsvendor optimisation
+- **Real-time dashboard** — WebSocket-powered browser UI showing agent thinking, KPI tiles, risk scenarios, and marketplace atoms (follows the paretos design system)
+- **Walk-forward backtesting** — simulates 20 weekly decision cycles with strict no-future-data-leakage
+- **Micro-Shift Marketplace** — decomposes staffing plans into 2-hour claimable work atoms with dynamic pricing and German labour law (ArbZG) compliance
+- **Asymmetric cost model** — overstaffing (€230/pd idle) vs understaffing (€41.40/pd overtime + €600 SLA penalty beyond 2.0 pd tolerance)
+- **Knowledge curation** — Claude validates planner notes against data evidence, scores confidence, and retires stale beliefs
+- **CLI** — backtest, holdout predictions, baseline costs, changepoint detection, dataset info
 
 ---
 
-## 2. What's in the box
+## Tech Stack
 
-```
-hackathon-dataset/
-├── README.md                         ← you are here
-└── data/
-    ├── recommendations/              ← 24 weekly optimiser plans (rec_<decision-Tuesday>.csv)
-    ├── actuals/                      ← what really happened, per training week
-    │   ├── present_<week-monday>.csv     daily person-days actually on the floor
-    │   └── volumes_<week-monday>.csv      realized processed volumes
-    ├── clean/                        ← the same data, tidied — start here if you want
-    │   ├── recommendations_long.csv
-    │   ├── present_long.csv
-    │   └── volumes_long.csv
-    ├── decision_log.json             ← the planners' running notes (messy, unverified!)
-    └── cost_model.json               ← how a staffing decision is costed
-```
-
-> The **last 4 weeks are a held-out test set.** You get their *recommendations* (so you
-> can decide), but their *actuals* are withheld and kept by the facilitators for
-> scoring (§5). The `clean/` files cover the training period only.
-
-### The raw files are deliberately a little messy
-Because real operational exports are. Treat parsing them as part of the warm-up — or
-skip straight to `data/clean/` and come back to the raw files if you want the full
-texture.
-
-**`recommendations/rec_YYYY-MM-DD.csv`** — the filename date is the **decision
-Tuesday**. Semicolon-delimited, wide, **German decimals** (`8,9` = 8.9). Header is
-`Datum/Volumen` + the 7 calendar days of the planned week (weekends & public holidays
-are `0`). Rows, in order:
-
-| Section | Rows | Unit |
-|---|---|---|
-| Volume forecast | `PAL_Wareneingang` (inbound pallets), `VollPAL_Warenausgang` (outbound full pallets), `Picks_Warenausgang` (picks), `KomPAL_Warenausgang` (picking pallets) | units |
-| `Mitarbeiter operativ` | 15 operative activities (Unloading … Aisle maintenance) | person-days |
-| `Summe operativ` | sum of the 15 operative rows | person-days |
-| `Mitarbeiter administrativ` | 4 admin desks (Control room, Outbound office, Inbound office, Inventory) | person-days |
-| `Summe administrativ` | always **8** | person-days |
-
-**`actuals/present_YYYY-MM-DD.csv`** (filename = the planned week's Monday) —
-`DATUM` (`DD.MM.YYYY`), **`PRESENT_TOTAL`** = the total person-days *actually present
-on the floor that day*, whole-site (operative **+** the constant 8 admin). `FORECAST_PL`
-is an empty legacy column. **This is your weekly ground-truth feedback.**
-
-**`actuals/volumes_YYYY-MM-DD.csv`** — `DATUM` (long-form dates, **mixed German and
-English** on purpose), `PICKS`, `VOLLPALETTEN`, `KOMMPALETTEN` = the volumes actually
-processed (which differ from the forecast the optimiser planned against).
-
-**`clean/present_long.csv`** — `date, present_total_person_days,
-present_operative_person_days`. The operative column is simply `present_total − 8`
-(admin removed) — **this is the number you are ultimately trying to plan for.**
-
-**`clean/volumes_long.csv`** — both the optimiser's `*_forecast` and the realized
-`*_realized` for picks/outbound/inbound, side by side.
-
-### `decision_log.json` — institutional memory, warts and all
-The planners' debrief notes, in their own words, with author and date. This is the
-human-knowledge channel a compounding system should ingest. **It is unverified and
-intentionally inconsistent:** some notes are durable truths, some are hunches that
-don't hold up, some were right once and have since gone stale, and at least one pair
-**flatly contradicts** each other. Nothing is labelled correct. A note dated
-`captured_on` may only inform decisions from that date onward. Deciding *what to
-trust, when, and for how long* is a core part of the challenge — not a preprocessing
-step.
-
----
-
-## 3. The timeline (May → October 2026)
-
-24 consecutive weekly cycles. A few things happen along the way; the calendar is real
-(German/Baden-Württemberg public holidays close the site), but **the dataset does not
-tell you what, when, or how big anything else is.** That's for your system to find.
-
-```
-May        Jun        Jul        Aug        Sep        Oct
-│──────────│──────────│──────────│──────────│──────────│────────│
- W21                                                    W41   W44
- ├─────────────── 20 TRAINING cycles ──────────────────┤├ HOLDOUT ┤
-        (actuals revealed each week)                     (actuals withheld)
-```
-
-Public holidays that close the floor (all-zero columns): **25 May** (Whit Monday),
-**4 Jun** (Corpus Christi), **3 Oct** (German Unity Day).
-
----
-
-## 4. The decision you're optimising
-
-For each working day you commit a **staffing plan**. The thing you are really trying to
-get right is the **total operative person-days** — staff too few and the work still
-has to ship (overtime, temps, late trucks); staff too many and you pay for idle hands.
-
-You can decide at whatever granularity you like (per activity, or just the operative
-total). For scoring we look at the **operative total per day**.
-
----
-
-## 5. How decisions are scored
-
-Decision quality is **money**, using `cost_model.json`. Admin (the constant 8) is
-excluded — you always staff it. For each day, against the realized operative need
-*N* (= `present_total − 8`):
-
-- **Overstaffing** (planned > N): every surplus person-day is paid but idle →
-  **€230 each**.
-- **Understaffing** (planned < N): the shortfall is covered at an **+18% overtime
-  premium** (€41 each) — *and*, once the daily shortfall exceeds **2.0 person-days**,
-  late trucks and missed carrier cut-offs add a **€600 penalty per extra short
-  person-day**.
-
-The asymmetry is the lesson in miniature: a *small, deliberate* undershoot is actually
-cheaper than playing it safe with a big overshoot — but cut too hard and the SLA
-penalty detonates. **Cut toward the truth, not past it.**
-
-**Your score on the held-out weeks** is total cost, reported against two anchors:
-
-| Anchor | What it is |
+| Layer | Technology |
 |---|---|
-| **Baseline** | staffing exactly the raw optimiser recommendation — *doing nothing with the data* |
-| **Perfect** | staffing exactly the realized need (a floor; day-to-day noise makes it unreachable) |
-
-> *Reference point:* a crude flat "trim everything ~17%" already closes **~86%** of the
-> baseline→perfect gap. Getting past that requires the *nuanced* learnings — the easy
-> 86% is not where the competition is won. Facilitators score submissions with
-> `SOLUTION/scoring.py`; the submission format is `date,planned_operative_person_days`.
-
----
-
-## 6. What to build (and what we're looking for)
-
-Build **the loop**, not a one-shot forecaster. A strong entry demonstrably:
-
-1. **Captures** why each week's plan diverged from reality — from the actuals *and*
-   from the messy decision log.
-2. **Applies** those learnings to the next cycle's recommendation, and shows the gap
-   shrinking over time.
-3. **Curates** its own knowledge: promotes what keeps holding up, and **retires what
-   stops being true.**
-
-This maps directly onto the judging criteria:
-
-- **Problem significance** — warehouse staffing is decided this way, every week, at
-  thousands of sites. Small per-week percentages are large annual money.
-- **Innovation** — the interesting ideas are in *how you represent, trust, and expire
-  knowledge*, not in the modelling stack.
-- **Functional depth** — there is a real loop here with real feedback and a real score.
-  Make something *happen* across cycles; don't stop at a dashboard.
+| Language | Python 3.11+ |
+| Agent framework | LangGraph |
+| LLM | Anthropic Claude (via `anthropic` SDK) |
+| Data validation | Pydantic v2 |
+| Statistics | pandas, NumPy, SciPy, ruptures (changepoint detection) |
+| Database | SQLite (build from CSV), DuckDB (optional) |
+| Dashboard | Vanilla HTML/CSS/JS, WebSockets |
+| Marketplace API | FastAPI + Uvicorn |
+| Testing | pytest, Hypothesis |
+| Linting | Ruff, mypy |
 
 ---
 
-## 7. Questions worth asking the data
-
-No spoilers — but here is where the learning is. Treat these as hypotheses to test, and
-notice that some will be **dead ends or traps** (which is the point: part of the skill
-is finding out *what isn't* true):
-
-- Is the optimiser's error **random, or structured**? Is it the same everywhere, or
-  concentrated in particular activities? Does it scale with volume, or have a floor?
-- Does the error **stay constant for six months**, or does something **change partway
-  through** and make an earlier-correct adjustment wrong?
-- Every note in the decision log sounds reasonable. **Do they all actually hold up**
-  against the actuals? What do you do when two notes disagree?
-- Some patterns **repeat** (and are worth learning); some are **one-offs** (and will
-  burn you if you generalise them). Can your system tell which is which *before* the
-  holdout?
-- The held-out weeks are in **October**. Is October like the rest of the data — or has
-  the world moved by then? What would a system that only averages the past get wrong?
-
-A system that can answer these — and, crucially, **knows which of its own answers to
-stop trusting** — is exactly the compounding decision engine the track is about.
-
----
-
-## 8. Ground rules & tips
-
-- **Don't try to reverse-engineer the holdout actuals.** They're withheld; modelling
-  the training period honestly is the whole game.
-- Day-to-day staffing carries **irreducible noise** — you cannot drive error to zero,
-  and chasing the last euro is a sign of overfitting. Aim to *reliably* close the gap.
-- Start in `data/clean/`; graduate to the raw files when you want the realism.
-- You may use the decision log a lot, a little, or not at all — but the teams that
-  combine the **data signal** with the **human signal** tend to learn faster, just as a
-  good analyst would.
-
----
-
-## 9. Provenance & anonymisation
-
-This is **synthetic data**, generated to mirror the *structure and ranges* of a real
-3PL warehouse staffing export — weekly optimiser recommendations vs. realized
-attendance — but every volume, rate, productivity figure, activity name, site, and date
-is invented. No real company, location, product line, or person is represented. It is
-safe to share, publish, and keep.
-
-
-
-# Paretos — Warehouse Staffing Database
-
-## SQLite Database (`paretos.db`)
-
-All raw and clean CSV/JSON data has been consolidated into a single normalized SQLite
-database for easy querying. Build it from source with `python build_database.py`.
-
-### Schema
+## Project Structure
 
 ```
-┌─────────────────────┐       ┌──────────────────────────────┐
-│ activities          │       │ recommendations              │
-├─────────────────────┤       ├──────────────────────────────┤
-│ id            (PK)  │◄──────│ activity_id        (FK)      │
-│ name          (UQ)  │       │ id                 (PK)      │
-│ activity_group      │       │ decision_date                │
-│   ('operative'|     │       │ planned_week_start           │
-│    'admin')         │       │ date                         │
-└─────────────────────┘       │ recommended_person_days      │
-                              │ UQ(decision_date, date,      │
-                              │    activity_id)              │
-                              └──────────────────────────────┘
-
-┌──────────────────────────────────┐  ┌──────────────────────────────────┐
-│ daily_actuals                    │  │ daily_volumes                    │
-├──────────────────────────────────┤  ├──────────────────────────────────┤
-│ id                    (PK)      │  │ id                    (PK)      │
-│ date                  (UQ, IDX) │  │ date                  (UQ, IDX) │
-│ week_start                      │  │ week_start                      │
-│ present_total_person_days       │  │ picks_forecast                  │
-│ present_operative_person_days   │  │ picks_realized                  │
-└──────────────────────────────────┘  │ outbound_forecast               │
-                                      │ outbound_realized               │
-                                      │ inbound_forecast                │
-                                      │ inbound_realized                │
-                                      └──────────────────────────────────┘
-
-┌──────────────────────────────────┐
-│ cost_model  (single row, id=1)  │
-├──────────────────────────────────┤
-│ currency                        │
-│ regular_cost_per_person_day     │
-│ overstaffing_idle_cost          │
-│ understaffing_overtime_pct      │
-│ understaffing_sla_tolerance_pd  │
-│ understaffing_sla_penalty       │
-│ scoring_note                    │
-└──────────────────────────────────┘
-
-┌─────────────────────────┐       ┌──────────────────────────────┐
-│ decision_log_authors    │       │ decision_log                 │
-├─────────────────────────┤       ├──────────────────────────────┤
-│ id              (PK)    │◄──────│ author_id          (FK)      │
-│ name            (UQ)    │       │ id                 (PK)      │
-│ role                    │       │ entry_id           (UQ)      │
-└─────────────────────────┘       │ captured_on        (IDX)     │
-                                  │ scope                        │
-                                  │ note                         │
-                                  │ claimed_effect     (JSON)    │
-                                  └──────────────────────────────┘
+paretos/
+├── src/
+│   ├── paretos_core/          # Config, schemas, cost model, data loading, exceptions
+│   ├── paretos_stats/         # Bias correction, DoW adjustment, changepoint, corrections
+│   ├── paretos_eval/          # Cost scoring and performance evaluation
+│   ├── paretos_pipeline/      # Walk-forward backtest, CLI
+│   ├── paretos_agents/        # LangGraph nodes, orchestrator, prompts, LLM client
+│   │   └── dashboard/         # Real-time browser UI (index.html)
+│   └── paretos_marketplace/   # Work atoms, pricing, matching, FastAPI endpoints
+├── tests/                     # pytest test suite
+├── data/
+│   ├── clean/                 # Tidy CSVs (start here)
+│   ├── recommendations/       # 24 raw weekly optimiser plans
+│   ├── actuals/               # 20 training weeks of ground truth
+│   ├── cost_model.json        # Asymmetric cost parameters
+│   └── decision_log.json      # 15 planner notes (messy, intentionally inconsistent)
+├── run_pipeline.py            # Run the multi-agent pipeline with live dashboard
+├── run_marketplace.py         # Start the marketplace API server
+├── build_database.py          # Build SQLite DB from raw CSV/JSON
+├── pyproject.toml             # Dependencies and project config
+├── .env.example               # Environment variable template
+└── learning.md                # Running journal of bugs, fixes, and lessons
 ```
 
-### Table Details
+---
 
-| Table | Rows | Description |
+## Prerequisites
+
+- **Python 3.11+**
+- **Anthropic API key** (required for the agent pipeline; the backtest/CLI works without it)
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/paretos.git
+cd paretos
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # macOS / Linux
+# .venv\Scripts\activate    # Windows
+```
+
+### 3. Install dependencies
+
+```bash
+# Core only (backtest, CLI, stats — no LLM required)
+pip install -e .
+
+# With agent pipeline (requires Anthropic API key)
+pip install -e ".[agents]"
+
+# With marketplace API
+pip install -e ".[marketplace]"
+
+# With development tools
+pip install -e ".[dev]"
+
+# Everything
+pip install -e ".[agents,marketplace,dev]"
+```
+
+### 4. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your Anthropic API key:
+
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+The backtest and CLI commands work without an API key. The agent pipeline requires it.
+
+---
+
+## Usage
+
+### Run the backtest (no API key needed)
+
+```bash
+# Run all three strategies and compare
+paretos backtest
+
+# Or directly
+python -m paretos_pipeline.cli backtest
+```
+
+### Run the multi-agent pipeline (requires API key)
+
+```bash
+# With live dashboard (opens browser)
+python run_pipeline.py
+
+# Without dashboard
+python run_pipeline.py --no-viz
+
+# Specific training week (0-19)
+python run_pipeline.py --week 15
+```
+
+### CLI commands
+
+```bash
+paretos backtest              # Walk-forward backtest (strategies A/B/C)
+paretos holdout               # Generate holdout predictions
+paretos baseline              # Show raw optimiser cost
+paretos detect                # Detect changepoints in staffing KPIs
+paretos info                  # Dataset summary
+```
+
+### Start the marketplace API
+
+```bash
+python run_marketplace.py             # Default port 8000
+python run_marketplace.py --port 8100 # Custom port
+```
+
+### Build the SQLite database
+
+```bash
+python build_database.py
+```
+
+This creates `paretos.db` from the raw CSV/JSON data files.
+
+### Run tests
+
+```bash
+pytest
+```
+
+---
+
+## Configuration
+
+All settings can be configured via environment variables or a `.env` file. See `.env.example` for the full list. Key settings:
+
+| Variable | Default | Description |
 |---|---|---|
-| `activities` | 19 | Lookup: 15 operative + 4 admin activity names |
-| `daily_actuals` | 98 | Actual staffing per day (total & operative person-days) |
-| `daily_volumes` | 98 | Forecast vs realized picks / outbound / inbound |
-| `recommendations` | 1,862 | Per-activity per-day staffing plans (19 activities × 98 days) |
-| `cost_model` | 1 | Scoring parameters (€230 overstaffing, €41.40 + €600 SLA understaffing) |
-| `decision_log_authors` | 3 | Planner lookup (Maya, Jonas, Selin) |
-| `decision_log` | 15 | Planner notes with claimed effects stored as JSON |
+| `ANTHROPIC_API_KEY` | (required for agents) | Anthropic API key |
+| `PRIMARY_LLM_MODEL` | `claude-sonnet-4-6` | Primary LLM model |
+| `DATA_DIR` | `./data` | Root data directory |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `NEWSVENDOR_CRITICAL_RATIO` | `0.15` | Target percentile for cost optimisation |
+| `SLA_TOLERANCE_PD` | `2.0` | Understaffing SLA threshold (person-days) |
+| `REGIME_SENSITIVITY` | `0.05` | Changepoint detection sensitivity |
 
-**Date range:** 2026-05-18 → 2026-10-02 &nbsp;|&nbsp; **Indexes:** on `date`, `decision_date`, `captured_on`
+---
 
-### Example Queries
+## Troubleshooting
 
-```sql
--- Daily recommended operative total vs actual
-SELECT r.date,
-       SUM(r.recommended_person_days) AS planned_operative,
-       a.present_operative_person_days AS actual_operative
-FROM recommendations r
-JOIN activities act ON r.activity_id = act.id
-JOIN daily_actuals a ON r.date = a.date
-WHERE act.activity_group = 'operative'
-GROUP BY r.date;
+**`ANTHROPIC_API_KEY not set`**
+The agent pipeline requires an Anthropic API key. Copy `.env.example` to `.env` and fill in your key. The backtest and CLI work without it.
 
--- Forecast accuracy for picks
-SELECT date,
-       picks_forecast,
-       picks_realized,
-       ROUND(100.0 * (picks_realized - picks_forecast) / picks_forecast, 1) AS pct_error
-FROM daily_volumes;
-```
+**`ModuleNotFoundError: No module named 'langgraph'`**
+Install the agents extras: `pip install -e ".[agents]"`
 
+**`ModuleNotFoundError: No module named 'fastapi'`**
+Install the marketplace extras: `pip install -e ".[marketplace]"`
 
+**Tests fail with import errors**
+Make sure you installed in editable mode: `pip install -e ".[dev]"`
+
+**Dashboard doesn't open**
+The dashboard requires the `websockets` package (included in `[agents]`). It opens automatically at `http://localhost:8768` when running `python run_pipeline.py`.
+
+---
+
+## Dataset Reference
+
+The `data/` directory contains the hackathon dataset from the paretos "Compounding Decisions" challenge. See `data/clean/` for tidy CSVs. Key files:
+
+| File | Description |
+|---|---|
+| `clean/present_long.csv` | Daily actual staffing (total & operative person-days) |
+| `clean/recommendations_long.csv` | Per-activity per-day optimiser plans |
+| `clean/volumes_long.csv` | Forecast vs realised picks/outbound/inbound |
+| `decision_log.json` | 15 planner notes (messy, some contradictory) |
+| `cost_model.json` | Asymmetric cost parameters for scoring |
+
+**Training period:** 20 weeks (May-Sep 2026). **Holdout:** 4 weeks (October 2026, actuals withheld).
+
+---
+
+## License
+
+This project was built for the paretos hackathon. The dataset is synthetic and safe to share.
