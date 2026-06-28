@@ -21,6 +21,30 @@ Built for the [paretos "Compounding Decisions" hackathon](https://www.paretos.co
 
 ---
 
+## Screenshots
+
+### Week Picker
+Select which week to run the pipeline for directly from the dashboard.
+
+![Week Picker](docs/week-picker.png)
+
+### Agent Activity Log
+Real-time trace of every agent's thinking — forecast accuracy, knowledge curation, bias correction, and more.
+
+![Activity Log](docs/activity-log.png)
+
+### Human Review Gate
+Review the proposed staffing plan, risk assessment, and adversarial scenarios before approving or rejecting.
+
+![Human Review](docs/human-review.png)
+
+### Results Dashboard
+KPI tiles showing forecast accuracy, cost savings, gap closure, newsvendor percentile, and Monte Carlo simulations.
+
+![Results Dashboard](docs/results-dashboard.png)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -79,8 +103,8 @@ paretos/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/paretos.git
-cd paretos
+git clone https://github.com/decision-hack/team-6.git
+cd team-6
 ```
 
 ### 2. Create a virtual environment
