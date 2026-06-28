@@ -72,6 +72,17 @@ pipeline_output.txt
 # ── Duplicate / scratch data ─────────────────────────────
 data-1/
 
+# ── Scratch / analysis files ────────────────────────────
+analysis.py
+analysis_notebook.ipynb
+analysis_report.md
+ai_strategy_report.md
+UI-prompt.md
+audit.py
+debug_trace.py
+build_database.py
+.windsurf/
+
 # ── Generated / scratch files ────────────────────────────
 *.pyc
 *.pyo
