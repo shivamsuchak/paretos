@@ -17,27 +17,39 @@ from datetime import timedelta
 from paretos_core.config import Settings
 from paretos_core.data_loader import DataStore
 from paretos_agents.orchestrator import run_weekly_cycle
-from paretos_agents.trace_server import start_trace_server, broadcast_pipeline_done, broadcast_results
+from paretos_agents.trace_server import (
+    start_trace_server, broadcast_pipeline_done, broadcast_results,
+    broadcast_available_weeks, wait_for_week_selection,
+)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run the staffing agent pipeline")
-    parser.add_argument("--no-viz", action="store_true", help="Disable visualization")
-    parser.add_argument("--week", type=int, default=10, help="Training week index (0-19)")
-    parser.add_argument("--notes", type=int, default=5, help="Max decision log notes to send")
-    args = parser.parse_args()
+def _build_week_payload(store: DataStore) -> list[dict]:
+    """Build the list of available weeks for the UI picker."""
+    weeks = []
+    for i, wc in enumerate(store.weekly_cycles):
+        has_actuals = bool(wc.actuals)
+        label = f"Week {i}: {wc.planned_week_start}"
+        if not has_actuals:
+            label += " (holdout)"
+        weeks.append({
+            "index": i,
+            "week_start": str(wc.planned_week_start),
+            "has_actuals": has_actuals,
+            "label": label,
+        })
+    return weeks
 
-    store = DataStore(Settings())
-    week_idx = min(args.week, len(store.weekly_cycles) - 1)
+
+def _prepare_week(store: DataStore, week_idx: int, max_notes: int = 5):
+    """Prepare all data for a given week index."""
+    week_idx = min(week_idx, len(store.weekly_cycles) - 1)
     week = store.weekly_cycles[week_idx]
 
-    # Build history from prior weeks
     prior = [w for w in store.weekly_cycles[:week_idx] if w.actuals]
     hist_recs = [r.model_dump(mode="json") for w in prior for r in w.recommendations]
     hist_actuals = [a.model_dump(mode="json") for w in prior for a in w.actuals]
     raw_recs = [r.model_dump(mode="json") for r in week.recommendations]
 
-    # Previous week actuals (if available)
     prev_actuals = None
     if week_idx > 0:
         pw = store.weekly_cycles[week_idx - 1]
@@ -45,7 +57,49 @@ def main():
             prev_actuals = [a.model_dump(mode="json") for a in pw.actuals]
 
     vols = [v.model_dump(mode="json") for v in store.volumes] if store.volumes else None
-    log = [e.model_dump(mode="json") for e in store.decision_log[:args.notes]]
+    log = [e.model_dump(mode="json") for e in store.decision_log[:max_notes]]
+
+    return week, week_idx, hist_recs, hist_actuals, raw_recs, prev_actuals, vols, log
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run the staffing agent pipeline")
+    parser.add_argument("--no-viz", action="store_true", help="Disable visualization")
+    parser.add_argument("--week", type=int, default=None,
+                        help="Training week index (0-19). If omitted with --no-viz, defaults to 10. "
+                             "If omitted with visualization, shows a picker in the dashboard.")
+    parser.add_argument("--notes", type=int, default=5, help="Max decision log notes to send")
+    args = parser.parse_args()
+
+    store = DataStore(Settings())
+
+    # Start real-time thinking dashboard
+    if not args.no_viz:
+        start_trace_server(open_browser=True)
+        time.sleep(1)  # Let browser connect
+
+    # Determine week index
+    if args.week is not None:
+        # Explicit --week flag: use it directly
+        week_idx = args.week
+    elif args.no_viz:
+        # No viz, no --week: default to 10
+        week_idx = 10
+    else:
+        # Viz mode, no --week: let user pick in the dashboard
+        print("Waiting for week selection in dashboard...")
+        available = _build_week_payload(store)
+        broadcast_available_weeks(available)
+        selected = wait_for_week_selection(timeout=600)
+        if selected is None:
+            print("Timeout waiting for week selection. Defaulting to week 10.")
+            week_idx = 10
+        else:
+            week_idx = selected
+            print(f"User selected week {week_idx}")
+
+    week, week_idx, hist_recs, hist_actuals, raw_recs, prev_actuals, vols, log = \
+        _prepare_week(store, week_idx, args.notes)
 
     print(f"{'='*60}")
     print(f"PARETOS MULTI-AGENT PIPELINE")
@@ -57,11 +111,6 @@ def main():
     print(f"Visualize:   {'YES — browser will open' if not args.no_viz else 'disabled'}")
     print(f"{'='*60}")
     print()
-
-    # Start real-time thinking dashboard
-    if not args.no_viz:
-        start_trace_server(open_browser=True)
-        time.sleep(1)  # Let browser connect
 
     t0 = time.time()
 

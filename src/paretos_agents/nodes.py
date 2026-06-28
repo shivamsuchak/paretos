@@ -537,7 +537,7 @@ def planning_agent(state: PipelineState) -> dict:
             # Parse individual scenarios for affected days
             for sc in scenarios:
                 severity = (sc.get("severity") or "").lower()
-                sev_mult = {"critical": 3.0, "high": 2.0, "medium": 1.0, "low": 0.5}.get(severity, 1.0)
+                sev_mult = {"critical": 3.0, "elevated": 2.0, "moderate": 1.0, "low": 0.5}.get(severity, 1.0)
                 for day in sc.get("affected_days", []):
                     red_team_boost[str(day)] = red_team_boost.get(str(day), 0) + sev_mult
 
@@ -1393,7 +1393,7 @@ def red_team_agent(state: PipelineState) -> dict:
             cost_impact = float(sc.get("cost_if_triggered", 0))
             expected_regret = prob * cost_impact
             sc["expected_regret"] = round(expected_regret, 2)
-            severity = sc.get("severity", "medium")
+            severity = sc.get("severity", "moderate")
 
             _think(state, "red_team", f"scenario_{i+1}",
                    f"[{severity.upper()}] {sc.get('title', '?')} — "
@@ -1404,7 +1404,7 @@ def red_team_agent(state: PipelineState) -> dict:
         total_regret = sum(sc.get("expected_regret", 0) for sc in scenarios)
         max_severity = max(
             (sc.get("severity", "low") for sc in scenarios),
-            key=lambda s: {"low": 0, "medium": 1, "high": 2, "critical": 3}.get(s, 0),
+            key=lambda s: {"low": 0, "moderate": 1, "elevated": 2, "critical": 3}.get(s, 0),
             default="low"
         )
 

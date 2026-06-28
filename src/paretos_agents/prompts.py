@@ -194,7 +194,7 @@ Find exactly 3 failure scenarios for this plan. For each scenario, return:
 - cost_if_triggered: EUR amount — compute from cost model params above
 - affected_days: list of date strings that are most fragile
 - mitigation: one concrete action the planner can take NOW to reduce risk
-- severity: "low" | "medium" | "high" | "critical"
+- severity: "low" | "moderate" | "elevated" | "critical"
 
 Return ONLY a JSON array of 3 scenario objects.
 """

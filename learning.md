@@ -290,3 +290,27 @@ Config, dependencies, and `.env.example` now match what the code actually uses. 
 When a codebase evolves (e.g., switching from OpenAI to Anthropic), config files and dependency manifests can get out of sync with the actual imports. A full cross-reference audit catches these silently broken assumptions before they cause runtime errors.
 
 ---
+
+## 2026-06-28 — UI Week Picker (Dashboard)
+
+**Problem**
+Users had to specify the week via CLI (`--week 15`). They wanted to pick the week visually in the dashboard before the pipeline runs.
+
+**Cause**
+The pipeline was hardcoded to start immediately with a week index from command-line args. No communication channel existed for the dashboard to send a selection back to the server before execution.
+
+**Solution**
+- Added `broadcast_available_weeks()` and `wait_for_week_selection()` to `trace_server.py` — new WebSocket message types (`available_weeks` → dashboard, `week_selected` ← dashboard)
+- Added a week picker overlay to `index.html` — styled like the existing review panel, showing all 24 weeks with training/holdout badges
+- Updated `run_pipeline.py` — when `--week` is omitted and viz is enabled, it sends the available weeks to the dashboard and blocks until the user clicks one
+
+**Result**
+Three modes now work:
+1. `python run_pipeline.py` → opens dashboard, shows week picker, waits for click
+2. `python run_pipeline.py --week 15` → skips picker, runs week 15 directly
+3. `python run_pipeline.py --no-viz` → no dashboard, defaults to week 10
+
+**Lesson**
+WebSocket communication is bidirectional — the same channel used for server→browser traces can carry browser→server user decisions. The pattern (broadcast options → block on threading.Event → receive selection) works for any "ask the user" interaction.
+
+---

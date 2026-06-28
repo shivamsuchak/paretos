@@ -277,14 +277,14 @@ body{
 }
 .risk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
 .risk-card.sev-low::before{background:var(--green)}
-.risk-card.sev-medium::before{background:var(--warn)}
-.risk-card.sev-high::before{background:var(--red)}
+.risk-card.sev-moderate::before{background:var(--warn)}
+.risk-card.sev-elevated::before{background:var(--red)}
 .risk-card.sev-critical::before{background:var(--red)}
 .risk-title{font-size:14px;font-weight:500;color:var(--black);margin-bottom:6px;display:flex;align-items:center;gap:8px}
 .risk-badge{font-size:10px;font-weight:500;text-transform:uppercase;padding:2px 8px;border-radius:3px;color:var(--white)}
 .risk-badge.low{background:var(--green)}
-.risk-badge.medium{background:var(--warn)}
-.risk-badge.high{background:var(--red)}
+.risk-badge.moderate{background:var(--warn)}
+.risk-badge.elevated{background:var(--red)}
 .risk-badge.critical{background:var(--red)}
 .risk-desc{font-size:14px;color:var(--black-60);margin-bottom:8px;line-height:1.5}
 .risk-meta{display:flex;gap:16px;font-size:12px;color:var(--black-40);font-family:var(--mono)}
@@ -342,10 +342,46 @@ body{
   min-width:80px;text-align:center;line-height:1;
 }
 .review-risk-score.low{color:var(--green)}
-.review-risk-score.medium{color:var(--warn)}
-.review-risk-score.high{color:var(--red)}
+.review-risk-score.moderate{color:var(--warn)}
+.review-risk-score.elevated{color:var(--red)}
 .review-risk-score.critical{color:var(--red)}
 .review-risk-label{font-size:12px;color:var(--black-40);text-align:center;margin-top:6px}
+
+/* Week picker overlay */
+.week-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.4);z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+}
+.week-panel{
+  background:var(--white);border:1px solid var(--black-20);
+  border-radius:var(--r-lg);padding:30px;max-width:520px;width:90%;
+  max-height:85vh;overflow-y:auto;
+  box-shadow:var(--shadow);
+}
+.week-panel h2{
+  font-size:19.2px;font-weight:500;letter-spacing:-0.192px;
+  color:var(--black);margin:0 0 6px;
+}
+.week-panel .wp-sub{
+  font-size:14px;color:var(--black-40);margin-bottom:20px;
+}
+.week-list{display:flex;flex-direction:column;gap:6px}
+.week-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;border:1px solid var(--black-20);border-radius:var(--r);
+  cursor:pointer;transition:all var(--ease);font-size:14px;
+  background:var(--white);
+}
+.week-item:hover{border-color:var(--violet);background:var(--violet-5)}
+.week-item .wi-label{color:var(--black);font-weight:400}
+.week-item .wi-date{font-family:var(--mono);font-size:12px;color:var(--black-40)}
+.week-item .wi-badge{
+  font-size:10px;font-weight:500;text-transform:uppercase;
+  padding:2px 8px;border-radius:3px;letter-spacing:0.24px;
+}
+.week-item .wi-badge.training{background:var(--green-bg);color:var(--green)}
+.week-item .wi-badge.holdout{background:var(--warn-bg);color:var(--warn)}
 
 /* Debrief */
 .debrief-box{
@@ -465,7 +501,7 @@ function connect(){
   ws.onopen=()=>{$('sDot').className='dot ok';$('sTxt').textContent='Connected'};
   ws.onclose=()=>{$('sDot').className='dot';$('sTxt').textContent='Disconnected';setTimeout(connect,2000)};
   ws.onerror=()=>{$('sTxt').textContent='Retrying'};
-  ws.onmessage=e=>{const m=JSON.parse(e.data);({node_active:activate,node_done:complete,thinking:addRow,pipeline_results:showResults,pipeline_done:done,review_request:showReviewPanel})[m.type]?.(m)};
+  ws.onmessage=e=>{const m=JSON.parse(e.data);({node_active:activate,node_done:complete,thinking:addRow,pipeline_results:showResults,pipeline_done:done,review_request:showReviewPanel,available_weeks:showWeekPicker})[m.type]?.(m)};
 }
 
 function activate(m){
@@ -590,7 +626,7 @@ function showResults(r){
     h+='</div>';
     h+='<div class="res-section"><div class="rs-title">Adversarial Risk Scenarios</div>';
     risk.scenarios.forEach(sc=>{
-      const sev=sc.severity||'medium';
+      const sev=sc.severity||'moderate';
       h+=`<div class="risk-card sev-${sev}">`;
       h+=`<div class="risk-title"><span class="risk-badge ${sev}">${sev}</span> ${esc(sc.title||'Scenario')}</div>`;
       h+=`<div class="risk-desc">${esc(sc.description||'')}</div>`;
@@ -698,7 +734,7 @@ function showReviewPanel(r){
   const cost=r.cost_summary||{};
   const scenarios=risk.scenarios||[];
   const riskScore=risk.overall_risk_score||0;
-  const riskLevel=riskScore>=80?'critical':riskScore>=50?'high':riskScore>=25?'medium':'low';
+  const riskLevel=riskScore>=80?'critical':riskScore>=50?'elevated':riskScore>=25?'moderate':'low';
 
   let h='<div class="review-panel">';
   h+='<h2>Human review required</h2>';
@@ -727,7 +763,7 @@ function showReviewPanel(r){
 
     // Scenario cards
     scenarios.forEach((s,i)=>{
-      const sev=(s.severity||'medium').toLowerCase();
+      const sev=(s.severity||'moderate').toLowerCase();
       h+='<div class="risk-card" style="margin-bottom:8px">';
       h+='<div class="risk-title"><span class="risk-badge '+sev+'">'+(s.severity||'?')+'</span> '+(s.title||'Scenario '+(i+1))+'</div>';
       h+='<div class="risk-desc">'+(s.description||'')+'</div>';
@@ -794,6 +830,52 @@ function tick(){
 function $(id){return document.getElementById(id)}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
+
+function showWeekPicker(m){
+  const old=document.querySelector('.week-overlay');
+  if(old)old.remove();
+
+  const weeks=m.weeks||[];
+  let h='<div class="week-panel">';
+  h+='<h2>Select a week</h2>';
+  h+='<div class="wp-sub">Choose which week to run the pipeline for.</div>';
+  h+='<div class="week-list">';
+  weeks.forEach(w=>{
+    const badge=w.has_actuals
+      ?'<span class="wi-badge training">training</span>'
+      :'<span class="wi-badge holdout">holdout</span>';
+    h+=`<div class="week-item" onclick="sendWeekSelection(${w.index})">`;
+    h+=`<span class="wi-label">Week ${w.index}</span>`;
+    h+=`<span class="wi-date">${w.week_start}</span>`;
+    h+=badge;
+    h+='</div>';
+  });
+  h+='</div></div>';
+
+  const overlay=document.createElement('div');
+  overlay.className='week-overlay';
+  overlay.innerHTML=h;
+  document.body.appendChild(overlay);
+}
+
+function sendWeekSelection(idx){
+  if(ws&&ws.readyState===1){
+    ws.send(JSON.stringify({type:'week_selected',week_index:idx}));
+  }
+  const overlay=document.querySelector('.week-overlay');
+  if(overlay)overlay.remove();
+
+  $('sTxt').textContent='Week '+idx+' selected';
+  const feed=$('feed');
+  const r=document.createElement('div');
+  r.className='row hi';
+  r.innerHTML=
+    `<span class="r-t">${new Date().toLocaleTimeString()}</span>`+
+    `<span class="r-a">system</span>`+
+    `<span class="r-b"><b>week_selected</b> Running pipeline for week ${idx}</span>`;
+  feed.appendChild(r);
+  feed.scrollTop=feed.scrollHeight;
+}
 
 connect();
 </script>

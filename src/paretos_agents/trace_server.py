@@ -25,6 +25,8 @@ _server_thread: threading.Thread | None = None
 _http_thread: threading.Thread | None = None
 _human_decision: threading.Event = threading.Event()
 _human_response: dict = {}
+_week_selection: threading.Event = threading.Event()
+_week_response: dict = {}
 
 WS_PORT = 8767
 HTTP_PORT = 8768
@@ -62,6 +64,10 @@ async def _ws_handler(websocket):
                     global _human_response
                     _human_response = msg
                     _human_decision.set()
+                elif msg.get("type") == "week_selected":
+                    global _week_response
+                    _week_response = msg
+                    _week_selection.set()
             except json.JSONDecodeError:
                 pass
     finally:
@@ -157,6 +163,44 @@ def wait_for_human_decision(timeout: float = 300.0) -> dict:
         "approved": _human_response.get("approved", True),
         "reason": _human_response.get("reason", ""),
     }
+
+
+def broadcast_available_weeks(weeks: list[dict]):
+    """Send available weeks to the dashboard for user selection.
+
+    Each week dict should have: {index, week_start, has_actuals, label}
+    """
+    if not _event_loop or not _ws_clients:
+        return
+
+    payload = {"type": "available_weeks", "weeks": weeks}
+    msg = json.dumps(payload)
+
+    async def _send():
+        dead = set()
+        for ws in _ws_clients.copy():
+            try:
+                await ws.send(msg)
+            except Exception:
+                dead.add(ws)
+        _ws_clients.difference_update(dead)
+
+    asyncio.run_coroutine_threadsafe(_send(), _event_loop)
+
+
+def wait_for_week_selection(timeout: float = 600.0) -> int | None:
+    """Block until the user selects a week in the dashboard.
+
+    Returns the selected week index, or None on timeout.
+    """
+    global _week_response
+    _week_selection.clear()
+    _week_response = {}
+
+    got = _week_selection.wait(timeout=timeout)
+    if not got:
+        return None
+    return _week_response.get("week_index")
 
 
 def broadcast_pipeline_done():
