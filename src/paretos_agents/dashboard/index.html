@@ -509,7 +509,7 @@ function activate(m){
   if(!t0){t0=Date.now();tick();$('sDot').className='dot run';$('sTxt').textContent='Running'}
   document.querySelectorAll('.g-node.active').forEach(n=>n.classList.remove('active'));
   const el=$('nd-'+nid);
-  if(el){el.classList.add('active');el.dataset.t0=Date.now()}
+  if(el){el.classList.remove('done');el.classList.add('active');el.dataset.t0=Date.now()}
   const ln=$('line-'+nid);if(ln)ln.classList.add('lit');
 }
 
@@ -524,7 +524,7 @@ function complete(m){
 function addRow(m){
   const nid=A2N[m.agent]||m.agent;
   const nel=$('nd-'+nid);
-  if(nel&&!nel.classList.contains('done'))activate(m);
+  if(nel)activate(m);
 
   if(!traces[m.agent])traces[m.agent]=[];
   traces[m.agent].push(m);

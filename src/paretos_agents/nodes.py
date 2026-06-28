@@ -423,6 +423,7 @@ def regime_agent(state: PipelineState) -> dict:
 
         if len(hist_actuals) < 15:
             _think(state, "regime", "skip", f"Only {len(hist_actuals)} data points — need ≥15")
+            _think(state, "regime", "done", "Skipped — insufficient data")
             return {
                 "regime_flags": {"detected": False, "reason": "insufficient_data"},
                 "thinking": state.get("thinking", []),
@@ -440,7 +441,7 @@ def regime_agent(state: PipelineState) -> dict:
         if result:
             result["date"] = str(result["date"])
             _think(state, "regime", "detected", f"⚡ Regime change at {result['date']} — shift magnitude {result['shift_magnitude']:.3f}")
-            _think(state, "regime", "interpretation", result.get('interpretation', 'structural shift detected'))
+            _think(state, "regime", "done", result.get('interpretation', 'structural shift detected'))
             return {
                 "regime_flags": result,
                 "thinking": state.get("thinking", []),
@@ -460,6 +461,7 @@ def regime_agent(state: PipelineState) -> dict:
             }
 
     except Exception as e:
+        _think(state, "regime", "done", f"Error: {e}")
         return {
             "regime_flags": {"detected": False, "error": str(e)},
             "errors": state.get("errors", []) + [f"regime_agent: {e}"],
@@ -1489,6 +1491,8 @@ def human_review_gate(state: PipelineState) -> dict:
         emoji = "✅" if approved else "❌"
         _think(state, "human_review", "decision",
                f"{emoji} Planner {'approved' if approved else 'rejected'}: {reason}")
+        _think(state, "human_review", "done",
+               f"Review complete — {'approved' if approved else 'rejected'}")
 
         return {
             "human_approved": approved,
@@ -1503,6 +1507,7 @@ def human_review_gate(state: PipelineState) -> dict:
     # No dashboard connected — auto-approve
     _think(state, "human_review", "decision",
            "✅ Auto-approved (no dashboard connected)")
+    _think(state, "human_review", "done", "Review complete — auto-approved")
     return {
         "human_approved": True,
         "thinking": state.get("thinking", []),
